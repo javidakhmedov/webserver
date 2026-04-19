@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <title>MilliSec | Secure Entry</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --glow-r: #ff003c;
+            --glow-b: #008cff;
+            --bg: #020202;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background: var(--bg);
+            font-family: 'Share Tech Mono', 'Noto Sans', monospace;
+            display: flex; justify-content: center; align-items: center; overflow: hidden;
+        }
+
+        #bg-canvas { position: fixed; top: 0; left: 0; z-index: -1; opacity: 0.08; }
+
+        .portrait-left {
+            position: fixed; left: 0; bottom: 0; height: 100vh; width: 45%;
+            object-fit: cover; object-position: right; z-index: 0;
+            filter: sepia(1) hue-rotate(-50deg) saturate(4) brightness(0.6);
+            mask-image: linear-gradient(to right, black 60%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to right, black 60%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .portrait-right {
+            position: fixed; right: 0; bottom: 0; height: 100vh; width: 45%;
+            object-fit: cover; object-position: left; z-index: 0;
+            filter: sepia(1) hue-rotate(180deg) saturate(4) brightness(0.6);
+            mask-image: linear-gradient(to left, black 60%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to left, black 60%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .logo-wrapper {
+            position: relative;
+            width: 160px; height: 160px;
+            margin: 0 auto 24px auto;
+        }
+
+        .logo-wrapper img {
+            width: 100%; height: 100%;
+            object-fit: contain;
+            position: relative; z-index: 2;
+            filter: drop-shadow(-6px 0 18px rgba(255,0,60,0.7))
+                    drop-shadow(6px 0 18px rgba(0,140,255,0.7));
+        }
+
+        .logo-wrapper::before {
+            content: '';
+            position: absolute; top: 10%; left: 0;
+            width: 50%; height: 80%;
+            background: radial-gradient(ellipse at right, rgba(255,0,60,0.25) 0%, transparent 70%);
+            z-index: 1; border-radius: 50%;
+        }
+
+        .logo-wrapper::after {
+            content: '';
+            position: absolute; top: 10%; right: 0;
+            width: 50%; height: 80%;
+            background: radial-gradient(ellipse at left, rgba(0,140,255,0.25) 0%, transparent 70%);
+            z-index: 1; border-radius: 50%;
+        }
+
+        .container {
+            background: rgba(0, 5, 10, 0.92);
+            padding: 40px; border-radius: 4px; width: 380px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: -12px 0 40px rgba(255,0,60,0.15),
+                         12px 0 40px rgba(0,140,255,0.15);
+            backdrop-filter: blur(18px);
+            position: relative; z-index: 10;
+        }
+
+        .container::before {
+            content: "";
+            position: absolute; top: -1px; left: -1px; right: -1px; height: 4px;
+            background: linear-gradient(90deg, var(--glow-r), var(--glow-b));
+            box-shadow: 0 0 14px rgba(0,140,255,0.4);
+        }
+
+        h2 {
+            font-family: 'Orbitron', 'Noto Sans', sans-serif;
+            font-size: 1.1rem; color: #fff;
+            letter-spacing: 4px; margin-bottom: 28px;
+            text-shadow: 0 0 10px rgba(255,255,255,0.4);
+        }
+
+        input {
+            width: 100%; padding: 12px; box-sizing: border-box;
+            background: rgba(0,0,0,0.7); color: #fff;
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 2px;
+            outline: none; font-size: 14px;
+            font-family: 'Noto Sans', 'Share Tech Mono', monospace;
+            margin-bottom: 14px; transition: 0.3s;
+        }
+
+        input::placeholder {
+            font-family: 'Noto Sans', 'Share Tech Mono', monospace;
+            color: rgba(255,255,255,0.35);
+            letter-spacing: 1px;
+        }
+
+        input:focus {
+            border-color: var(--glow-b);
+            box-shadow: 0 0 10px rgba(0,140,255,0.2);
+        }
+
+        button {
+            width: 100%; padding: 14px; border: none; border-radius: 2px;
+            cursor: pointer; font-weight: bold; margin-top: 10px;
+            font-family: 'Noto Sans', 'Share Tech Mono', monospace;
+            font-size: 1rem; transition: 0.35s;
+            text-transform: uppercase; letter-spacing: 2px;
+        }
+
+        .btn-portal {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+        }
+
+        .btn-portal:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: var(--glow-b);
+            box-shadow: 0 0 18px rgba(0,140,255,0.25);
+            color: #fff;
+        }
+
+        .btn-red {
+            background: transparent;
+            border: 1px solid var(--glow-r);
+            color: var(--glow-r);
+        }
+
+        .btn-red:hover {
+            background: var(--glow-r);
+            color: #fff;
+            box-shadow: 0 0 20px rgba(255,0,60,0.35);
+        }
+
+        .hidden { display: none; }
+
+        .toggle-link {
+            color: rgba(255,255,255,0.25);
+            cursor: pointer; font-size: 12px;
+            font-family: 'Noto Sans', sans-serif;
+            display: block; margin-top: 24px;
+            letter-spacing: 1px; transition: 0.2s;
+        }
+
+        .toggle-link:hover { color: rgba(255,255,255,0.6); }
+
+        #qrcode {
+            display: inline-block; padding: 10px;
+            background: white; border-radius: 4px; margin-bottom: 15px;
+        }
+
+        .signature {
+            position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+            font-size: 10px; color: rgba(255,255,255,0.18);
+            letter-spacing: 3px; z-index: 100;
+            font-family: 'Share Tech Mono', monospace;
+            white-space: nowrap;
+        }
+
+        .policy-box {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 3px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+            text-align: left;
+        }
+
+        .policy-title {
+            font-size: 10px;
+            color: rgba(255,255,255,0.3);
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .req {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-family: 'Noto Sans', sans-serif;
+            color: rgba(255,255,255,0.35);
+            margin-bottom: 4px;
+            transition: color 0.3s;
+        }
+
+        .req .dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            flex-shrink: 0;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        .req.ok { color: rgba(0,220,120,0.85); }
+        .req.ok .dot { background: #00dc78; box-shadow: 0 0 6px rgba(0,220,120,0.6); }
+        .req.fail { color: rgba(255,0,60,0.7); }
+        .req.fail .dot { background: var(--glow-r); box-shadow: 0 0 6px rgba(255,0,60,0.5); }
+
+        .strength-bar-wrap {
+            height: 3px;
+            background: rgba(255,255,255,0.07);
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .strength-bar {
+            height: 100%;
+            width: 0%;
+            border-radius: 2px;
+            transition: width 0.4s, background 0.4s;
+        }
+
+        .info-msg {
+            font-size: 12px;
+            color: rgba(255,204,0,0.7);
+            margin-bottom: 14px;
+            font-family: 'Noto Sans', sans-serif;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<img src="zaur.jpeg" class="portrait-left" alt="">
+<img src="fakhrim.jpeg" class="portrait-right" alt="">
+
+<div class="container">
+
+    <div class="logo-wrapper">
+        <img src="millisec.png" alt="MilliSec Logo">
+    </div>
+
+    <div id="login-box">
+        <h2>GİRİŞ PORTALI</h2>
+        <input type="text" id="l-user" placeholder="İstifadəçi adı">
+        <input type="password" id="l-pass" placeholder="Parol" onkeypress="if(event.key==='Enter')login()">
+        <button class="btn-portal" onclick="login()">Avtorizasiya</button>
+        <span class="toggle-link" onclick="toggleView('reg-box')">Hesabın yoxdur? Qeydiyyatdan keç</span>
+    </div>
+
+    <div id="mfa-verify-box" class="hidden">
+        <h2>MFA DOĞRULAMA</h2>
+        <p style="font-size:13px; color:rgba(255,255,255,0.3); margin-bottom:15px; font-family:'Noto Sans',sans-serif;">
+            Authenticator kodunu daxil edin
+        </p>
+        <input type="text" id="v-code" placeholder="••••••" maxlength="6"
+            style="text-align:center; font-size:22px; letter-spacing:10px;"
+            onkeypress="if(event.key==='Enter')verify()">
+        <button class="btn-portal" onclick="verify()">Təsdiqlə</button>
+        <span class="toggle-link" onclick="toggleView('login-box')">Geri qayıt</span>
+    </div>
+
+    <div id="reg-box" class="hidden">
+        <h2>YENİ QEYDİYYAT</h2>
+        <input type="text" id="r-user" placeholder="İstifadəçi adı">
+        <input type="password" id="r-pass" placeholder="Yeni parol" oninput="checkPolicy(this.value)">
+        <input type="password" id="r-pass2" placeholder="Parolu təkrarla">
+
+        <div class="policy-box">
+            <div class="policy-title">PAROL SİYASƏTİ</div>
+            <div class="req" id="req-len"><span class="dot"></span>Minimum 8 simvol</div>
+            <div class="req" id="req-upper"><span class="dot"></span>Ən az 1 böyük hərf (A-Z)</div>
+            <div class="req" id="req-lower"><span class="dot"></span>Ən az 1 kiçik hərf (a-z)</div>
+            <div class="req" id="req-digit"><span class="dot"></span>Ən az 1 rəqəm (0-9)</div>
+            <div class="req" id="req-special"><span class="dot"></span>Ən az 1 simvol (!@#$%^&*)</div>
+            <div class="strength-bar-wrap">
+                <div class="strength-bar" id="strength-bar"></div>
+            </div>
+        </div>
+
+        <button class="btn-red" onclick="register()">Qeydiyyatı tamamla</button>
+        <span class="toggle-link" onclick="toggleView('login-box')">Geri qayıt</span>
+    </div>
+
+    <div id="mfa-setup-box" class="hidden">
+        <h2>MFA QURAŞDIRILMASI</h2>
+        <p class="info-msg">Google Authenticator və ya Authy ilə QR kodu skan edin, sonra 6 rəqəmli kodu daxil edin.</p>
+        <div id="qrcode"></div>
+        <input type="text" id="s-code" placeholder="6 rəqəmli kod" maxlength="6"
+               style="text-align:center; font-size:18px; letter-spacing:8px;"
+               onkeypress="if(event.key==='Enter')enableMfa()">
+        <button class="btn-portal" onclick="enableMfa()">Aktivləşdir</button>
+    </div>
+
+</div>
+
+<div class="signature">CREATED BY JAVID AKHMEDOV</div>
+
+<script>
+    // Matrix fon animasiyası
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const drops = Array(Math.floor(canvas.width / 20)).fill(1);
+    function draw() {
+        ctx.fillStyle = "rgba(2,2,2,0.05)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#fff";
+        ctx.font = "13px monospace";
+        drops.forEach((y, i) => {
+            ctx.fillText(Math.floor(Math.random() * 2), i * 20, y * 20);
+            if (y * 20 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+            drops[i]++;
+        });
+    }
+    setInterval(draw, 50);
+
+    const API = "/api";
+    let curUser = "", tempPass = "";
+
+    function toggleView(v) {
+        document.querySelectorAll('.container > div').forEach(d => {
+            if (d.id !== "") d.classList.add('hidden');
+        });
+        document.getElementById(v).classList.remove('hidden');
+    }
+
+    // ─── Parol Siyasəti ──────────────────────────────────────────────────────
+    const rules = {
+        len:     { test: p => p.length >= 8,                                             id: 'req-len'    },
+        upper:   { test: p => /[A-Z]/.test(p),                                           id: 'req-upper'  },
+        lower:   { test: p => /[a-z]/.test(p),                                           id: 'req-lower'  },
+        digit:   { test: p => /[0-9]/.test(p),                                           id: 'req-digit'  },
+        special: { test: p => /[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>\/?`~]/.test(p),         id: 'req-special' }
+    };
+
+    function checkPolicy(password) {
+        let passed = 0;
+        for (const key in rules) {
+            const ok = rules[key].test(password);
+            const el = document.getElementById(rules[key].id);
+            el.classList.toggle('ok',   ok && password.length > 0);
+            el.classList.toggle('fail', !ok && password.length > 0);
+            if (ok) passed++;
+        }
+        const bar = document.getElementById('strength-bar');
+        const pct = password.length === 0 ? 0 : (passed / 5) * 100;
+        bar.style.width = pct + '%';
+        const colors = ['#ff003c', '#ff6600', '#ffcc00', '#88dd00', '#00dc78'];
+        bar.style.background = password.length === 0 ? 'transparent' : (colors[passed - 1] || '#ff003c');
+        return passed === 5;
+    }
+
+    function validatePassword(p) {
+        if (!checkPolicy(p)) {
+            const failed = [];
+            if (!rules.len.test(p))     failed.push("Minimum 8 simvol");
+            if (!rules.upper.test(p))   failed.push("Böyük hərf (A-Z)");
+            if (!rules.lower.test(p))   failed.push("Kiçik hərf (a-z)");
+            if (!rules.digit.test(p))   failed.push("Rəqəm (0-9)");
+            if (!rules.special.test(p)) failed.push("Xüsusi simvol (!@#$%...)");
+            alert("Parol tələblərə uyğun deyil:\n\n• " + failed.join("\n• "));
+            return false;
+        }
+        return true;
+    }
+
+    // ─── LOGİN ───────────────────────────────────────────────────────────────
+    // BUG FIX #3: setup_needed cavabı düzgün handle edilir
+    async function login() {
+        curUser  = document.getElementById("l-user").value.trim();
+        tempPass = document.getElementById("l-pass").value;
+        if (!curUser || !tempPass) return alert("Xanaları doldurun!");
+
+        let res  = await fetch(`${API}/login`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({username: curUser, password: tempPass})
+        });
+        let data = await res.json();
+
+        if (!res.ok) {
+            return alert("Giriş alınmadı: " + (data.detail || "Səhv məlumatlar"));
+        }
+
+        if (data.mfa_required) {
+            if (data.setup_needed) {
+                // İlk dəfə login edir, MFA quraşdırılmayıb → setup paneli aç
+                toggleView('mfa-setup-box');
+                let qrRes  = await fetch(`${API}/mfa/setup/${curUser}`);
+                let qrData = await qrRes.json();
+                document.getElementById("qrcode").innerHTML = "";
+                new QRCode(document.getElementById("qrcode"), {
+                    text: qrData.qr_uri, width: 160, height: 160
+                });
+            } else {
+                // MFA quraşdırılıb, sadəcə kod tələb olunur
+                toggleView('mfa-verify-box');
+            }
+        }
+        // access_token varsa login tamamdır (edge case, normalda mfa_required olur)
+        if (data.access_token) {
+            sessionStorage.setItem("token", data.access_token);
+            window.location.href = "/dashboard.html";
+        }
+    }
+
+    // ─── MFA VERİFİKASİYA ────────────────────────────────────────────────────
+    async function verify() {
+        let code = document.getElementById("v-code").value.trim();
+        if (!code || code.length !== 6) return alert("6 rəqəmli kod daxil edin!");
+
+        let res  = await fetch(`${API}/login`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({username: curUser, password: tempPass, mfa_code: code})
+        });
+        let data = await res.json();
+
+        if (res.ok && data.access_token) {
+            sessionStorage.setItem("token", data.access_token);
+            window.location.href = "/dashboard.html";
+        } else {
+            alert("MFA kodu yanlışdır!");
+            document.getElementById("v-code").value = "";
+        }
+    }
+
+    // ─── QEYDİYYAT ───────────────────────────────────────────────────────────
+    async function register() {
+        curUser = document.getElementById("r-user").value.trim();
+        const p1 = document.getElementById("r-pass").value;
+        const p2 = document.getElementById("r-pass2").value;
+
+        if (!curUser)            return alert("İstifadəçi adını daxil edin!");
+        if (!validatePassword(p1)) return;
+        if (p1 !== p2)           return alert("Parollar eyni deyil!");
+
+        // DÜZƏLİŞ: Qeydiyyatdan sonra login ola bilmək üçün parolu yadda saxlayırıq
+        tempPass = p1; 
+
+        let res = await fetch(`${API}/register`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({username: curUser, password: p1})
+        });
+        let data = await res.json();
+
+        if (res.ok) {
+            toggleView('mfa-setup-box');
+            let qrRes  = await fetch(`${API}/mfa/setup/${curUser}`);
+            let qrData = await qrRes.json();
+            document.getElementById("qrcode").innerHTML = "";
+            new QRCode(document.getElementById("qrcode"), {
+                text: qrData.qr_uri, width: 160, height: 160
+            });
+        } else {
+            alert("Xəta: " + (data.detail || "Qeydiyyat alınmadı"));
+        }
+    }
+
+    // ─── MFA AKTİVLƏŞDİRMƏ ───────────────────────────────────────────────────
+    // BUG FIX #3b: aktivləşdirmədən sonra verify paneline keç, reload etmə
+    async function enableMfa() {
+        let code = document.getElementById("s-code").value.trim();
+        if (!code || code.length !== 6) return alert("6 rəqəmli kod daxil edin!");
+
+        let res = await fetch(`${API}/mfa/enable`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({username: curUser, mfa_code: code})
+        });
+        let data = await res.json();
+
+        if (res.ok) {
+            alert("MFA uğurla aktivləşdirildi! İndi Authenticator kodunuzu daxil edin.");
+            document.getElementById("v-code").value = "";
+            toggleView('mfa-verify-box');
+        } else {
+            alert("Kod yanlışdır: " + (data.detail || "Yenidən cəhd edin"));
+            document.getElementById("s-code").value = "";
+        }
+    }
+</script>
+</body>
+</html>

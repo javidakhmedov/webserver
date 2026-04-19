@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+psycopg2-binary
+requests
+python-dotenv
+httpx
+email-validator
+pyotp
+jaraco.context>=6.1.0
+wheel>=0.46.2
+PyJWT
+

@@ -1,0 +1,27 @@
+# SSL və Şəxsi Açarlar
+nginx/certs/*.key
+nginx/certs/*.pem
+nginx/certs/*.crt
+nginx/certs/*.csr
+
+# Böyük quraşdırma faylları
+*.deb
+*.zip
+*.tar.gz
+
+# Digər lazımsızlar
+.env
+__pycache__/
+node_modules/
+backend-report.html
+# Şəkillər (Bütün formatlar)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.svg
+*.webp
+*.ico
+
+# Əgər konkret qovluqdakı şəkilləri gizlətmək istəyirsənsə:
+frontend/assets/

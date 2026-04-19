@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <title>MilliSec | Command Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --r: #ff003c;
+            --b: #008cff;
+            --g: #00ff9d;
+            --y: #ffcc00;
+            --bg: #010608;
+            --panel: rgba(0, 12, 22, 0.92);
+            --border: rgba(0,140,255,0.18);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body, html {
+            width: 100%; height: 100%; overflow: hidden;
+            background: var(--bg);
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--b);
+            cursor: crosshair;
+        }
+
+        body::after {
+            content: '';
+            position: fixed; inset: 0; z-index: 9999;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px);
+            pointer-events: none;
+        }
+
+        #matrix-canvas { position: fixed; inset: 0; z-index: 0; opacity: 0.05; }
+
+        .vignette {
+            position: fixed; inset: 0; z-index: 1; pointer-events: none;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.72) 100%);
+        }
+
+        .shell {
+            position: relative; z-index: 2;
+            display: grid;
+            grid-template-rows: 58px 1fr 72px;
+            height: 100vh;
+        }
+
+        /* ── HEADER ── */
+        header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 28px;
+            background: rgba(0, 8, 18, 0.98);
+            border-bottom: 1px solid var(--border);
+            position: relative;
+        }
+
+        header::after {
+            content: '';
+            position: absolute; bottom: -2px; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, var(--r) 0%, var(--b) 50%, var(--r) 100%);
+            background-size: 200% 100%;
+            animation: borderFlow 4s linear infinite;
+        }
+
+        @keyframes borderFlow { 0%{background-position:0%} 100%{background-position:200%} }
+
+        .hd-brand { display: flex; align-items: center; gap: 14px; }
+
+        .hd-logo {
+            width: 38px; height: 38px; object-fit: contain;
+            animation: logoGlow 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes logoGlow {
+            from { filter: drop-shadow(-2px 0 6px rgba(255,0,60,.7)) drop-shadow(2px 0 6px rgba(0,140,255,.7)); }
+            to   { filter: drop-shadow(-4px 0 16px rgba(255,0,60,1)) drop-shadow(4px 0 16px rgba(0,140,255,1)); }
+        }
+
+        .hd-title {
+            font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.05rem; letter-spacing: 6px;
+            background: linear-gradient(90deg, var(--r), var(--b));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+
+        .hd-subtitle { font-size: .6rem; color: rgba(0,140,255,.4); letter-spacing: 3px; margin-top: 1px; }
+
+        .hd-center { display: flex; align-items: center; gap: 30px; }
+
+        .hd-stat { text-align: center; }
+        .hd-stat-val { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 700; color: #fff; }
+        .hd-stat-val.red   { color: var(--r); text-shadow: 0 0 10px rgba(255,0,60,.6); }
+        .hd-stat-val.green { color: var(--g); text-shadow: 0 0 10px rgba(0,255,157,.6); }
+        .hd-stat-lbl { font-size: .55rem; color: rgba(0,140,255,.45); letter-spacing: 2px; margin-top: 1px; }
+
+        .hd-divider { width: 1px; height: 32px; background: linear-gradient(to bottom, transparent, var(--border), transparent); }
+
+        .hd-right { display: flex; align-items: center; gap: 16px; }
+
+        #uptime-display { font-family: 'Orbitron', sans-serif; font-size: .85rem; color: rgba(0,140,255,.6); letter-spacing: 2px; }
+
+        .alert-badge {
+            width: 36px; height: 36px; border: 1px solid rgba(255,0,60,.4); border-radius: 2px;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; transition: .3s;
+        }
+        .alert-badge:hover { background: rgba(255,0,60,.1); border-color: var(--r); }
+        .alert-badge svg { width: 16px; height: 16px; fill: var(--r); }
+        .alert-dot {
+            position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%;
+            background: var(--r); box-shadow: 0 0 8px var(--r); animation: blink 1s infinite;
+        }
+
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+        .btn-terminate {
+            background: transparent; border: 1px solid var(--r); color: var(--r);
+            padding: 7px 18px; font-family: 'Share Tech Mono', monospace; font-size: .75rem;
+            letter-spacing: 2px; cursor: pointer; text-transform: uppercase; transition: .3s; position: relative; overflow: hidden;
+        }
+        .btn-terminate::before {
+            content: ''; position: absolute; inset: 0; background: var(--r);
+            transform: translateX(-101%); transition: transform .3s; z-index: -1;
+        }
+        .btn-terminate:hover { color: #fff; }
+        .btn-terminate:hover::before { transform: translateX(0); }
+
+        /* ── CONTENT GRID ── */
+        .content {
+            display: grid;
+            grid-template-columns: 270px 1fr 290px;
+            overflow: hidden;
+        }
+
+        /* LEFT */
+        .panel-left {
+            border-right: 1px solid var(--border);
+            display: flex; flex-direction: column;
+            background: rgba(0,6,14,.6); overflow: hidden;
+        }
+
+        .panel-section { border-bottom: 1px solid var(--border); padding: 13px 15px; flex-shrink: 0; }
+
+        .ps-title {
+            font-family: 'Orbitron', sans-serif; font-size: .58rem; letter-spacing: 3px;
+            color: rgba(0,140,255,.5); margin-bottom: 11px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .ps-title::before {
+            content: ''; display: inline-block; width: 4px; height: 4px;
+            background: var(--b); box-shadow: 0 0 6px var(--b); border-radius: 50%;
+        }
+
+        .op-card { display: flex; align-items: center; gap: 11px; }
+
+        .op-avatar {
+            width: 44px; height: 44px; border: 1px solid rgba(0,140,255,.3); border-radius: 2px;
+            background: rgba(0,140,255,.05); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .op-avatar svg { width: 22px; height: 22px; fill: rgba(0,140,255,.6); }
+
+        .op-name {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: .92rem;
+            color: #fff; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .op-role { font-size: .6rem; color: rgba(0,140,255,.5); letter-spacing: 1px; margin-top: 2px; }
+        .op-status { display: flex; align-items: center; gap: 5px; margin-top: 4px; }
+        .status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--g); box-shadow: 0 0 6px var(--g); animation: blink 2s infinite; }
+        .status-txt { font-size: .6rem; color: var(--g); letter-spacing: 1px; }
+
+        .info-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 7px 9px; border: 1px solid rgba(0,140,255,.1); border-radius: 2px;
+            background: rgba(0,140,255,.03); margin-top: 8px;
+        }
+        .info-lbl { font-size: .62rem; color: rgba(0,140,255,.45); letter-spacing: 1px; }
+        .info-val { font-family: 'Orbitron', sans-serif; font-size: .65rem; font-weight: 700; }
+        .info-val.enc  { color: var(--g); text-shadow: 0 0 8px rgba(0,255,157,.5); }
+        .info-val.vuln { color: var(--r); text-shadow: 0 0 8px rgba(255,0,60,.5); }
+        .info-val.blue { color: rgba(0,140,255,.8); }
+
+        .metric-item { margin-bottom: 9px; }
+        .metric-item:last-child { margin-bottom: 0; }
+        .metric-hd { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .metric-name { font-size: .63rem; color: rgba(255,255,255,.35); letter-spacing: 1px; }
+        .metric-val  { font-size: .63rem; color: rgba(255,255,255,.65); }
+        .metric-track { height: 3px; background: rgba(255,255,255,.05); border-radius: 2px; overflow: hidden; }
+        .metric-fill  { height: 100%; border-radius: 2px; transition: width 1s ease; }
+        .fill-b { background: linear-gradient(90deg, rgba(0,140,255,.4), var(--b)); box-shadow: 0 0 6px rgba(0,140,255,.4); }
+        .fill-g { background: linear-gradient(90deg, rgba(0,255,157,.4), var(--g)); box-shadow: 0 0 6px rgba(0,255,157,.4); }
+        .fill-r { background: linear-gradient(90deg, rgba(255,0,60,.4),  var(--r)); box-shadow: 0 0 6px rgba(255,0,60,.4); }
+        .fill-y { background: linear-gradient(90deg, rgba(255,204,0,.4), var(--y)); box-shadow: 0 0 6px rgba(255,204,0,.4); }
+
+        .qa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .qa-btn {
+            border: 1px solid rgba(0,140,255,.2); background: rgba(0,140,255,.04); color: rgba(0,140,255,.7);
+            padding: 8px 5px; font-family: 'Share Tech Mono', monospace; font-size: .58rem;
+            letter-spacing: 1px; cursor: pointer; text-transform: uppercase; transition: .25s; border-radius: 1px;
+        }
+        .qa-btn:hover { background: rgba(0,140,255,.12); border-color: var(--b); color: #fff; box-shadow: 0 0 10px rgba(0,140,255,.15); }
+        .qa-btn.danger { border-color: rgba(255,0,60,.2); background: rgba(255,0,60,.04); color: rgba(255,0,60,.6); }
+        .qa-btn.danger:hover { background: rgba(255,0,60,.12); border-color: var(--r); color: #fff; box-shadow: 0 0 10px rgba(255,0,60,.15); }
+
+        /* CENTER */
+        .panel-center { display: flex; flex-direction: column; }
+
+        .map-header {
+            padding: 9px 16px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+            background: rgba(0,6,14,.5);
+        }
+        .map-title { font-family: 'Orbitron', sans-serif; font-size: .62rem; letter-spacing: 3px; color: rgba(0,140,255,.6); }
+        .map-badges { display: flex; gap: 8px; }
+        .mbadge { padding: 3px 9px; font-size: .57rem; letter-spacing: 1px; border: 1px solid; border-radius: 1px; }
+        .mbadge-r { border-color: rgba(255,0,60,.4); color: var(--r); background: rgba(255,0,60,.06); }
+        .mbadge-g { border-color: rgba(0,255,157,.4); color: var(--g); background: rgba(0,255,157,.06); }
+        .mbadge-b { border-color: rgba(0,140,255,.4); color: var(--b); background: rgba(0,140,255,.06); }
+
+        #map-container { flex: 1; position: relative; overflow: hidden; background: #000; }
+
+        #bg-map {
+            width: 100%; height: 100%; object-fit: cover; opacity: .75;
+            position: absolute; inset: 0; z-index: 1;
+            filter: hue-rotate(180deg) saturate(1.8) brightness(.8) contrast(1.1);
+        }
+
+        .hex-overlay {
+            position: absolute; inset: 0; z-index: 2; pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpolygon points='28,2 54,16 54,44 28,58 2,44 2,16' fill='none' stroke='rgba(0,140,255,0.06)' stroke-width='.8'/%3E%3Cpolygon points='28,52 54,66 54,94 28,108 2,94 2,66' fill='none' stroke='rgba(0,140,255,0.06)' stroke-width='.8'/%3E%3C/svg%3E");
+        }
+
+        .scan-line {
+            position: absolute; left: 0; right: 0; height: 2px; z-index: 4; pointer-events: none;
+            background: linear-gradient(90deg, transparent, rgba(0,140,255,.4), transparent);
+            animation: scanMove 6s linear infinite;
+        }
+        @keyframes scanMove { 0%{top:-2px;opacity:0} 5%{opacity:1} 95%{opacity:1} 100%{top:100%;opacity:0} }
+
+        .map-corner { position: absolute; z-index: 6; width: 18px; height: 18px; pointer-events: none; }
+        .mc-tl { top:10px; left:10px;  border-top:2px solid var(--b); border-left:2px solid var(--b); }
+        .mc-tr { top:10px; right:10px; border-top:2px solid var(--b); border-right:2px solid var(--b); }
+        .mc-bl { bottom:10px; left:10px;  border-bottom:2px solid var(--b); border-left:2px solid var(--b); }
+        .mc-br { bottom:10px; right:10px; border-bottom:2px solid var(--b); border-right:2px solid var(--b); }
+
+        #attack-canvas { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+
+        #baku-node {
+            position: absolute; top: 38.2%; left: 62.4%; z-index: 10;
+            transform: translate(-50%, -50%);
+        }
+        .baku-core {
+            width: 10px; height: 10px; background: var(--r); border-radius: 50%;
+            box-shadow: 0 0 14px var(--r); position: relative; z-index: 2;
+            animation: coreBreath 1.5s ease-in-out infinite alternate;
+        }
+        @keyframes coreBreath {
+            from { box-shadow: 0 0 10px var(--r); }
+            to   { box-shadow: 0 0 24px var(--r), 0 0 45px rgba(255,0,60,.4); }
+        }
+        .baku-ring {
+            position: absolute; top: 50%; left: 50%; border-radius: 50%;
+            border: 1px solid rgba(255,0,60,.6); transform: translate(-50%,-50%);
+            animation: ringExpand 2s ease-out infinite;
+        }
+        .baku-ring:nth-child(2) { animation-delay: .65s; }
+        .baku-ring:nth-child(3) { animation-delay: 1.3s; }
+        @keyframes ringExpand { 0%{width:10px;height:10px;opacity:.8} 100%{width:68px;height:68px;opacity:0} }
+        .baku-label {
+            position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+            font-family: 'Orbitron', sans-serif; font-size: .52rem; color: var(--r);
+            white-space: nowrap; letter-spacing: 2px; text-shadow: 0 0 8px rgba(255,0,60,.8);
+        }
+
+        /* RIGHT */
+        .panel-right {
+            border-left: 1px solid var(--border); display: flex; flex-direction: column;
+            background: rgba(0,6,14,.6); overflow: hidden;
+        }
+
+        .feed-header {
+            padding: 9px 15px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+        }
+        .feed-title {
+            font-family: 'Orbitron', sans-serif; font-size: .58rem; letter-spacing: 3px;
+            color: rgba(0,140,255,.5); display: flex; align-items: center; gap: 8px;
+        }
+        .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--r); box-shadow: 0 0 6px var(--r); animation: blink .8s infinite; }
+        .feed-count { font-size: .58rem; color: rgba(255,0,60,.6); letter-spacing: 1px; }
+
+        #output { flex: 1; overflow-y: auto; scrollbar-width: none; }
+        #output::-webkit-scrollbar { display: none; }
+
+        .log-line {
+            padding: 6px 13px; border-bottom: 1px solid rgba(0,140,255,.04);
+            display: grid; grid-template-columns: 68px 1fr; gap: 7px; align-items: start;
+            transition: background .2s; animation: fadeIn .4s ease;
+        }
+        @keyframes fadeIn { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:translateX(0)} }
+        .log-line:hover { background: rgba(0,140,255,.04); }
+        .log-time { color: rgba(0,140,255,.35); font-size: .6rem; padding-top: 1px; }
+        .log-body { display: flex; flex-direction: column; gap: 2px; }
+        .log-type { font-size: .6rem; letter-spacing: 1px; font-weight: bold; }
+        .log-ip   { color: rgba(255,255,255,.3); font-size: .62rem; }
+        .log-type.threat { color: var(--r); }
+        .log-type.block  { color: var(--y); }
+        .log-type.ok     { color: var(--g); }
+        .log-type.scan   { color: var(--b); }
+        .log-type.fw     { color: rgba(255,100,0,.9); }
+
+        .threat-strip { border-top: 1px solid var(--border); padding: 10px 13px; flex-shrink: 0; }
+        .ts-title { font-size: .56rem; color: rgba(0,140,255,.4); letter-spacing: 2px; margin-bottom: 8px; font-family: 'Orbitron', sans-serif; }
+        .ts-bars { display: flex; flex-direction: column; gap: 5px; }
+        .ts-row { display: grid; grid-template-columns: 78px 1fr 28px; gap: 6px; align-items: center; }
+        .ts-label { font-size: .58rem; color: rgba(255,255,255,.32); }
+        .ts-track { height: 4px; background: rgba(255,255,255,.05); border-radius: 2px; overflow: hidden; }
+        .ts-fill  { height: 100%; border-radius: 2px; }
+        .ts-num   { font-size: .62rem; color: rgba(255,255,255,.45); text-align: right; }
+
+        /* ── FOOTER ── */
+        footer {
+            border-top: 1px solid var(--border);
+            background: rgba(0,8,18,.98);
+            display: grid; grid-template-columns: 1fr auto 1fr;
+            align-items: center; padding: 0 28px; position: relative;
+        }
+        footer::before {
+            content: ''; position: absolute; top: -2px; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--b), transparent);
+        }
+
+        .ft-group { display: flex; gap: 22px; }
+        .ft-group.right { justify-content: flex-end; }
+        .ft-item { display: flex; flex-direction: column; }
+        .ft-item.right { text-align: right; }
+
+        .ft-val { font-family: 'Orbitron', sans-serif; font-size: 1.05rem; font-weight: 700; color: #fff; }
+        .ft-val.red    { color: var(--r); text-shadow: 0 0 12px rgba(255,0,60,.5); }
+        .ft-val.green  { color: var(--g); text-shadow: 0 0 12px rgba(0,255,157,.5); }
+        .ft-val.yellow { color: var(--y); text-shadow: 0 0 12px rgba(255,204,0,.5); }
+        .ft-val.blue   { color: var(--b); text-shadow: 0 0 12px rgba(0,140,255,.5); }
+        .ft-lbl { font-size: .5rem; color: rgba(0,140,255,.4); letter-spacing: 2px; margin-top: 1px; }
+
+        .ft-sep { width: 1px; height: 38px; background: linear-gradient(to bottom, transparent, var(--border), transparent); }
+
+        .ft-center-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+        .ft-center-top  { font-family: 'Orbitron', sans-serif; font-size: .55rem; letter-spacing: 4px; color: rgba(0,140,255,.28); }
+        .sys-status { display: flex; align-items: center; gap: 6px; }
+        .sys-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--g); box-shadow: 0 0 8px var(--g); animation: blink 2.5s infinite; }
+        .sys-txt { font-family: 'Orbitron', sans-serif; font-size: .62rem; letter-spacing: 2px; color: var(--g); }
+    </style>
+</head>
+<body>
+
+<canvas id="matrix-canvas"></canvas>
+<div class="vignette"></div>
+
+<div class="shell">
+
+    <header>
+        <div class="hd-brand">
+            <img src="millisec.png" class="hd-logo" alt="MilliSec">
+            <div>
+                <div class="hd-title">MILLISEC</div>
+                <div class="hd-subtitle">GLOBAL DEFENSE COMMAND</div>
+            </div>
+        </div>
+
+        <div class="hd-center">
+            <div class="hd-stat">
+                <div class="hd-stat-val red" id="hd-threats">0</div>
+                <div class="hd-stat-lbl">ACTIVE THREATS</div>
+            </div>
+            <div class="hd-divider"></div>
+            <div class="hd-stat">
+                <div class="hd-stat-val green" id="hd-blocked">0</div>
+                <div class="hd-stat-lbl">BLOCKED TODAY</div>
+            </div>
+            <div class="hd-divider"></div>
+            <div class="hd-stat">
+                <div class="hd-stat-val" id="hd-nodes">247</div>
+                <div class="hd-stat-lbl">NODES ONLINE</div>
+            </div>
+        </div>
+
+        <div class="hd-right">
+            <div id="uptime-display">00:00:00</div>
+            <div class="alert-badge" title="Alerts">
+                <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+                <div class="alert-dot"></div>
+            </div>
+            <button class="btn-terminate" onclick="logout()">TERMINATE SESSION</button>
+        </div>
+    </header>
+
+    <div class="content">
+
+        <!-- LEFT -->
+        <aside class="panel-left">
+            <div class="panel-section">
+                <div class="ps-title">OPERATOR PROFILE</div>
+                <div class="op-card">
+                    <div class="op-avatar">
+                        <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+                    </div>
+                    <div>
+                        <div class="op-name" id="op-name">ANALYST_X</div>
+                        <div class="op-role" id="op-role">SOC ANALYST · LEVEL 3</div>
+                        <div class="op-status">
+                            <div class="status-dot"></div>
+                            <div class="status-txt">AUTHENTICATED</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <span class="info-lbl">MFA SHIELD</span>
+                    <span class="info-val enc" id="op-mfa">ENCRYPTED</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-lbl">TERMINAL</span>
+                    <span class="info-val blue" id="op-terminal">NODE_X7</span>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="ps-title">SYSTEM METRICS</div>
+                <div class="metric-item">
+                    <div class="metric-hd"><span class="metric-name">CPU LOAD</span><span class="metric-val" id="m-cpu">--</span></div>
+                    <div class="metric-track"><div class="metric-fill fill-b" id="mb-cpu" style="width:0%"></div></div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-hd"><span class="metric-name">MEMORY</span><span class="metric-val" id="m-mem">--</span></div>
+                    <div class="metric-track"><div class="metric-fill fill-g" id="mb-mem" style="width:0%"></div></div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-hd"><span class="metric-name">NETWORK I/O</span><span class="metric-val" id="m-net">--</span></div>
+                    <div class="metric-track"><div class="metric-fill fill-y" id="mb-net" style="width:0%"></div></div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-hd"><span class="metric-name">THREAT INDEX</span><span class="metric-val" id="m-thr">--</span></div>
+                    <div class="metric-track"><div class="metric-fill fill-r" id="mb-thr" style="width:0%"></div></div>
+                </div>
+            </div>
+
+            <div class="panel-section" style="flex:1">
+                <div class="ps-title">QUICK ACTIONS</div>
+                <div class="qa-grid">
+                    <button class="qa-btn" onclick="flashAction(this)">SCAN NODE</button>
+                    <button class="qa-btn" onclick="flashAction(this)">PING HOST</button>
+                    <button class="qa-btn" onclick="flashAction(this)">TRACE ROUTE</button>
+                    <button class="qa-btn" onclick="flashAction(this)">BLOCK IP</button>
+                    <button class="qa-btn danger" onclick="flashAction(this)">ISOLATE</button>
+                    <button class="qa-btn danger" onclick="flashAction(this)">KILL PROC</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CENTER -->
+        <main class="panel-center">
+            <div class="map-header">
+                <div class="map-title">GLOBAL_THREAT_MAP · TARGET: BAKU_AZ</div>
+                <div class="map-badges">
+                    <span class="mbadge mbadge-r" id="badge-threats">↑ 0 THREATS</span>
+                    <span class="mbadge mbadge-g">SHIELD ACTIVE</span>
+                    <span class="mbadge mbadge-b">SCANNING</span>
+                </div>
+            </div>
+
+            <div id="map-container">
+                <img src="cyber_map.jpg" id="bg-map" alt="">
+                <div class="hex-overlay"></div>
+                <div class="scan-line"></div>
+                <div class="map-corner mc-tl"></div>
+                <div class="map-corner mc-tr"></div>
+                <div class="map-corner mc-bl"></div>
+                <div class="map-corner mc-br"></div>
+
+                <div id="baku-node">
+                    <div class="baku-ring"></div>
+                    <div class="baku-ring"></div>
+                    <div class="baku-ring"></div>
+                    <div class="baku-core"></div>
+                    <div class="baku-label">BAKU · AZ</div>
+                </div>
+
+                <canvas id="attack-canvas"></canvas>
+            </div>
+        </main>
+
+        <!-- RIGHT -->
+        <aside class="panel-right">
+            <div class="feed-header">
+                <div class="feed-title"><div class="live-dot"></div>LIVE THREAT FEED</div>
+                <div class="feed-count" id="feed-count">0 EVENTS</div>
+            </div>
+
+            <div id="output"></div>
+
+            <div class="threat-strip">
+                <div class="ts-title">ATTACK VECTORS</div>
+                <div class="ts-bars">
+                    <div class="ts-row"><span class="ts-label">BRUTE FORCE</span><div class="ts-track"><div class="ts-fill fill-r" id="v-bf" style="width:0%"></div></div><span class="ts-num" id="vn-bf">0</span></div>
+                    <div class="ts-row"><span class="ts-label">SQL INJECT</span><div class="ts-track"><div class="ts-fill fill-y" id="v-sq" style="width:0%"></div></div><span class="ts-num" id="vn-sq">0</span></div>
+                    <div class="ts-row"><span class="ts-label">DDoS</span><div class="ts-track"><div class="ts-fill fill-r" id="v-dd" style="width:0%"></div></div><span class="ts-num" id="vn-dd">0</span></div>
+                    <div class="ts-row"><span class="ts-label">PORT SCAN</span><div class="ts-track"><div class="ts-fill fill-b" id="v-ps" style="width:0%"></div></div><span class="ts-num" id="vn-ps">0</span></div>
+                    <div class="ts-row"><span class="ts-label">PHISHING</span><div class="ts-track"><div class="ts-fill fill-y" id="v-ph" style="width:0%"></div></div><span class="ts-num" id="vn-ph">0</span></div>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+
+    <footer>
+        <div class="ft-group">
+            <div class="ft-item">
+                <div class="ft-val red" id="ft-threats">0</div>
+                <div class="ft-lbl">THREATS TODAY</div>
+            </div>
+            <div class="ft-sep"></div>
+            <div class="ft-item">
+                <div class="ft-val green" id="ft-blocked">0</div>
+                <div class="ft-lbl">BLOCKED</div>
+            </div>
+            <div class="ft-sep"></div>
+            <div class="ft-item">
+                <div class="ft-val yellow" id="ft-pending">0</div>
+                <div class="ft-lbl">PENDING</div>
+            </div>
+        </div>
+
+        <div class="ft-center-wrap">
+            <div class="ft-center-top">MILLISEC DEFENSE GRID</div>
+            <div class="sys-status">
+                <div class="sys-dot"></div>
+                <div class="sys-txt">ALL SYSTEMS NOMINAL</div>
+            </div>
+        </div>
+
+        <div class="ft-group right">
+            <div class="ft-item right">
+                <div class="ft-val blue" id="ft-uptime">00:00:00</div>
+                <div class="ft-lbl">SESSION UPTIME</div>
+            </div>
+            <div class="ft-sep"></div>
+            <div class="ft-item right">
+                <div class="ft-val" id="ft-packets">0</div>
+                <div class="ft-lbl">PACKETS/SEC</div>
+            </div>
+            <div class="ft-sep"></div>
+            <div class="ft-item right">
+                <div class="ft-val" id="ft-nodes">247</div>
+                <div class="ft-lbl">NODES</div>
+            </div>
+        </div>
+    </footer>
+
+</div>
+
+<script>
+/* MATRIX */
+const mCanvas = document.getElementById('matrix-canvas');
+const mCtx = mCanvas.getContext('2d');
+mCanvas.width = window.innerWidth; mCanvas.height = window.innerHeight;
+const drops = Array(Math.floor(mCanvas.width / 18)).fill(1);
+setInterval(() => {
+    mCtx.fillStyle = "rgba(0,0,0,0.08)";
+    mCtx.fillRect(0, 0, mCanvas.width, mCanvas.height);
+    mCtx.fillStyle = "#008cff"; mCtx.font = "14px monospace";
+    drops.forEach((y, i) => {
+        mCtx.fillText(Math.floor(Math.random() * 2), i * 18, y * 16);
+        if (y * 16 > mCanvas.height && Math.random() > 0.975) drops[i] = 0;
+        drops[i]++;
+    });
+}, 50);
+
+/* AUTH */
+const token = sessionStorage.getItem("token");
+if (!token) window.location.href = '/';
+
+async function init() {
+    try {
+        const res = await fetch('/api/v1/profile', { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        const uname = data.username.toUpperCase();
+        document.getElementById('op-name').innerText = uname;
+        document.getElementById('op-terminal').innerText = uname + '_NODE_X7';
+        const mfaEl = document.getElementById('op-mfa');
+        if (data.mfa_enabled) {
+            mfaEl.innerText = 'ENCRYPTED';
+            mfaEl.className = 'info-val enc';
+        } else {
+            mfaEl.innerText = 'VULNERABLE';
+            mfaEl.className = 'info-val vuln';
+        }
+    } catch(e) { logout(); }
+}
+
+/* ATTACK MAP */
+const aCanvas = document.getElementById('attack-canvas');
+const aCtx = aCanvas.getContext('2d');
+const mapContainer = document.getElementById('map-container');
+
+function resizeMap() { aCanvas.width = mapContainer.offsetWidth; aCanvas.height = mapContainer.offsetHeight; }
+window.addEventListener('resize', resizeMap); resizeMap();
+
+const activeArcs = [];
+let totalThreats = 0, totalBlocked = 0;
+
+function spawnAttack() {
+    const tx = 0.624 * aCanvas.width, ty = 0.382 * aCanvas.height;
+    let sx = Math.random() * aCanvas.width, sy = Math.random() * aCanvas.height;
+    while (Math.abs(sx - tx) < 120 && Math.abs(sy - ty) < 80) { sx = Math.random() * aCanvas.width; sy = Math.random() * aCanvas.height; }
+    activeArcs.push({ sx, sy, tx, ty, p: 0, color: Math.random() > 0.5 ? '#ff003c' : '#008cff' });
+    totalThreats++; totalBlocked++; updateCounters();
+}
+
+function drawArcs() {
+    aCtx.clearRect(0, 0, aCanvas.width, aCanvas.height);
+    for (let i = activeArcs.length - 1; i >= 0; i--) {
+        const a = activeArcs[i];
+        a.p += 0.018;
+        const cx = a.sx + (a.tx - a.sx) * a.p;
+        const cy = a.sy + (a.ty - a.sy) * a.p;
+        const sc = a.p > 0.75 ? '#ff003c' : a.color;
+        aCtx.beginPath(); aCtx.strokeStyle = sc; aCtx.lineWidth = a.p > 0.75 ? 2 : 1.2;
+        aCtx.shadowColor = sc; aCtx.shadowBlur = 8; aCtx.setLineDash([4, 4]);
+        aCtx.moveTo(a.sx, a.sy); aCtx.lineTo(cx, cy); aCtx.stroke();
+        aCtx.setLineDash([]); aCtx.shadowBlur = 0;
+        aCtx.beginPath(); aCtx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+        aCtx.fillStyle = sc; aCtx.shadowColor = sc; aCtx.shadowBlur = 10; aCtx.fill(); aCtx.shadowBlur = 0;
+        if (a.p >= 1) activeArcs.splice(i, 1);
+    }
+    requestAnimationFrame(drawArcs);
+}
+drawArcs();
+setInterval(spawnAttack, 2200);
+
+/* FEED */
+const logBox = document.getElementById('output');
+let eventCount = 0;
+const logTypes = [
+    { type: 'THREAT_DETECTED', cls: 'threat', suffix: 'SRC' },
+    { type: 'PACKET_BLOCKED',  cls: 'block',  suffix: 'PORT' },
+    { type: 'ANALYSIS_OK',     cls: 'ok',     suffix: 'NODE' },
+    { type: 'FIREWALL_HIT',    cls: 'fw',     suffix: 'RULE' },
+    { type: 'PORT_SCAN',       cls: 'scan',   suffix: 'HOST' },
+];
+const countries = ['RU','CN','KP','IR','US','DE','BR','UA','TR','IN'];
+const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+const randIP = () => `${rand(1,254)}.${rand(0,255)}.${rand(0,255)}.${rand(1,254)}`;
+
+setInterval(() => {
+    const t = logTypes[Math.floor(Math.random() * logTypes.length)];
+    const now = new Date().toLocaleTimeString('en-GB', {hour12: false});
+    const row = document.createElement('div');
+    row.className = 'log-line';
+    row.innerHTML = `<div class="log-time">${now}</div><div class="log-body"><div class="log-type ${t.cls}">${t.type}</div><div class="log-ip">${t.suffix}: ${randIP()} [${countries[rand(0,9)]}]</div></div>`;
+    logBox.prepend(row);
+    if (logBox.childNodes.length > 35) logBox.lastChild.remove();
+    eventCount++;
+    document.getElementById('feed-count').innerText = eventCount + ' EVENTS';
+    updateVectors(t.cls);
+}, 1100);
+
+/* VECTORS */
+const vectors = { bf:0, sq:0, dd:0, ps:0, ph:0 };
+const vecMap = { threat:'bf', block:'sq', fw:'dd', scan:'ps', ok:'ph' };
+function updateVectors(cls) {
+    const key = vecMap[cls] || 'bf'; vectors[key]++;
+    const maxVal = Math.max(...Object.values(vectors), 1);
+    for (const [k, v] of Object.entries(vectors)) {
+        document.getElementById('v-' + k).style.width = Math.round((v / maxVal) * 100) + '%';
+        document.getElementById('vn-' + k).innerText = v;
+    }
+}
+
+/* COUNTERS */
+function updateCounters() {
+    const pending = Math.max(0, totalThreats - totalBlocked + rand(0, 2));
+    document.getElementById('hd-threats').innerText = totalThreats;
+    document.getElementById('hd-blocked').innerText = totalBlocked;
+    document.getElementById('ft-threats').innerText = totalThreats;
+    document.getElementById('ft-blocked').innerText = totalBlocked;
+    document.getElementById('ft-pending').innerText = pending;
+    document.getElementById('badge-threats').innerText = '↑ ' + totalThreats + ' THREATS';
+}
+
+/* METRICS */
+function updateMetrics() {
+    const cpu = rand(18, 72), mem = rand(34, 68), net = rand(10, 90);
+    const thr = Math.min(100, totalThreats);
+    document.getElementById('m-cpu').innerText = cpu + '%';
+    document.getElementById('m-mem').innerText = mem + '%';
+    document.getElementById('m-net').innerText = net + '%';
+    document.getElementById('m-thr').innerText = thr > 50 ? 'HIGH' : thr > 25 ? 'MED' : 'LOW';
+    document.getElementById('mb-cpu').style.width = cpu + '%';
+    document.getElementById('mb-mem').style.width = mem + '%';
+    document.getElementById('mb-net').style.width = net + '%';
+    document.getElementById('mb-thr').style.width = Math.min(100, thr * 2) + '%';
+    document.getElementById('ft-packets').innerText = rand(120, 999);
+}
+setInterval(updateMetrics, 2000); updateMetrics();
+
+/* UPTIME */
+let sec = 0;
+setInterval(() => {
+    sec++;
+    const h = Math.floor(sec/3600).toString().padStart(2,'0');
+    const m = Math.floor((sec%3600)/60).toString().padStart(2,'0');
+    const s = (sec%60).toString().padStart(2,'0');
+    const t = `${h}:${m}:${s}`;
+    document.getElementById('uptime-display').innerText = t;
+    document.getElementById('ft-uptime').innerText = t;
+}, 1000);
+
+/* QUICK ACTIONS */
+function flashAction(btn) {
+    const orig = btn.innerText;
+    btn.innerText = 'EXECUTING...'; btn.style.opacity = '.5';
+    setTimeout(() => { btn.innerText = 'DONE ✓'; btn.style.opacity = '1'; btn.style.color = 'var(--g)'; btn.style.borderColor = 'var(--g)'; }, 800);
+    setTimeout(() => { btn.innerText = orig; btn.style.color = ''; btn.style.borderColor = ''; }, 2200);
+}
+
+function logout() { sessionStorage.clear(); window.location.href = '/'; }
+
+init();
+</script>
+</body>
+</html>
